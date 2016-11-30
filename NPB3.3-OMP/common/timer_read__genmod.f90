@@ -1,0 +1,9 @@
+        !COMPILER-GENERATED INTERFACE MODULE: Tue Nov 29 22:08:42 2016
+        MODULE TIMER_READ__genmod
+          INTERFACE 
+            FUNCTION TIMER_READ(N)
+              INTEGER(KIND=4) :: N
+              REAL(KIND=8) :: TIMER_READ
+            END FUNCTION TIMER_READ
+          END INTERFACE 
+        END MODULE TIMER_READ__genmod

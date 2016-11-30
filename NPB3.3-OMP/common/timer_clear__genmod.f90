@@ -1,0 +1,8 @@
+        !COMPILER-GENERATED INTERFACE MODULE: Tue Nov 29 22:08:42 2016
+        MODULE TIMER_CLEAR__genmod
+          INTERFACE 
+            SUBROUTINE TIMER_CLEAR(N)
+              INTEGER(KIND=4) :: N
+            END SUBROUTINE TIMER_CLEAR
+          END INTERFACE 
+        END MODULE TIMER_CLEAR__genmod

@@ -1,0 +1,14 @@
+
+Begin optimization report for: VRANLC
+
+    Report from: Vector optimizations [vec]
+
+
+LOOP BEGIN at randi8.f(71,7)
+   remark #25460: No loop optimizations reported
+LOOP END
+
+LOOP BEGIN at randi8.f(71,7)
+<Remainder>
+LOOP END
+===========================================================================
