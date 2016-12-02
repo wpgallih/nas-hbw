@@ -79,6 +79,8 @@ c        integer(4) :: old_policy
         double complex, allocatable :: u(:)
 c     >                 u2(ntotalp)
       double precision, allocatable :: twiddle(:)
+        double complex, allocatable :: sums(:)
+        double complex, allocatable :: y1(:), y2(:)
 c---------------------------------------------------------------------
 c Large arrays are in common so that they are allocated on the
 c heap rather than the stack. This common block is not
@@ -91,13 +93,16 @@ c      common /bigarrays/ u0, pad1, u1, pad2, u2, pad3, twiddle
 c      double complex, allocatable :: pad1(3), pad2(3)
 c        common /bigarrays/ u0, pad1, u1, pad2, twiddle
         
-!DIR$ ATTRIBUTES FASTMEM :: u0, u1, twiddle
+!DIR$ ATTRIBUTES FASTMEM :: u, u0, u1, twiddle, sums, y1, y2
       integer iter
       double precision total_time, mflops
       logical verified
       character class
-c        old_policy = for_set_fastmem_policy(FOR_K_FASTMEM_RETRY_WARN)
-       allocate(u0(ntotalp), u1(ntotalp), twiddle(ntotalp), u(nxp)) 
+c        old_policy = for_set_fastmem_policy(FOR_K_FASTMEM_NORETRY)
+       allocate(u0(ntotalp), u1(ntotalp), twiddle(ntotalp), u(nxp))
+        allocate(sums(niter_default))
+        allocate(y1(fftblockpad_default*maxdim))
+        allocate(y2(fftblockpad_default*maxdim))
 c---------------------------------------------------------------------
 c Run the entire problem once to make sure all data is touched. 
 c This reduces variable startup costs, which is important for such a 
@@ -111,7 +116,7 @@ c---------------------------------------------------------------------
       call compute_indexmap(twiddle, dims(1), dims(2), dims(3))
       call compute_initial_conditions(u1, dims(1), dims(2), dims(3))
       call fft_init (u, dims(1))
-      call fft(u, 1, u1, u0)
+      call fft(u, 1, u1, u0, y1, y2)
 
 c---------------------------------------------------------------------
 c Start over from the beginning. Note that all operations must
@@ -132,7 +137,7 @@ c---------------------------------------------------------------------
 
       if (timers_enabled) call timer_stop(T_setup)
       if (timers_enabled) call timer_start(T_fft)
-      call fft(u, 1, u1, u0)
+      call fft(u, 1, u1, u0, y1, y2)
       if (timers_enabled) call timer_stop(T_fft)
 
       do iter = 1, niter
@@ -141,15 +146,15 @@ c---------------------------------------------------------------------
          if (timers_enabled) call timer_stop(T_evolve)
          if (timers_enabled) call timer_start(T_fft)
 c         call fft(-1, u1, u2)
-         call fft(u, -1, u1, u1)
+         call fft(u, -1, u1, u1, y1, y2)
          if (timers_enabled) call timer_stop(T_fft)
          if (timers_enabled) call timer_start(T_checksum)
 c         call checksum(iter, u2, dims(1), dims(2), dims(3))
-         call checksum(iter, u1, dims(1), dims(2), dims(3))
+         call checksum(sums, iter, u1, dims(1), dims(2), dims(3))
          if (timers_enabled) call timer_stop(T_checksum)
       end do
 
-      call verify(nx, ny, nz, niter, verified, class)
+      call verify(sums, nx, ny, nz, niter, verified, class)
 
       call timer_stop(t_total)
       total_time = timer_read(t_total)
@@ -162,11 +167,11 @@ c         call checksum(iter, u2, dims(1), dims(2), dims(3))
       else
          mflops = 0.0
       endif
+        deallocate(u, u0, u1, twiddle, sums, y1, y2)
       call print_results('FT', class, nx, ny, nz, niter,
      >  total_time, mflops, '          floating point', verified, 
      >  npbversion, compiletime, cs1, cs2, cs3, cs4, cs5, cs6, cs7)
       if (timers_enabled) call print_timers()
-
       end
 
 c---------------------------------------------------------------------
@@ -486,7 +491,7 @@ c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 
-      subroutine fft(u, dir, x1, x2)
+      subroutine fft(u, dir, x1, x2, y1, y2)
 
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
@@ -494,11 +499,14 @@ c---------------------------------------------------------------------
       implicit none
       include 'global.h'
       integer dir
-        double complex u(*)
+      double complex u(nxp)
       double complex x1(ntotalp), x2(ntotalp)
 
-      double complex y1(fftblockpad_default*maxdim),
-     >               y2(fftblockpad_default*maxdim)
+c      double complex y1(fftblockpad_default*maxdim),
+c     >               y2(fftblockpad_default*maxdim)
+
+        double complex y1(fftblockpad_default*maxdim)
+        double complex y2(fftblockpad_default*maxdim)
 
 c---------------------------------------------------------------------
 c note: args x1, x2 must be different arrays
@@ -516,7 +524,9 @@ c---------------------------------------------------------------------
          call cffts2(u, -1, dims(1), dims(2), dims(3), x1, x1, y1, y2)
          call cffts1(u, -1, dims(1), dims(2), dims(3), x1, x2, y1, y2)
       endif
+
       return
+        
       end
 
 
@@ -533,7 +543,7 @@ c---------------------------------------------------------------------
 
       include 'global.h'
       integer is, d1, d2, d3, logd1
-        double complex u(*)
+      double complex u(nxp)
       double complex x(d1+1,d2,d3)
       double complex xout(d1+1,d2,d3)
       double complex y1(fftblockpad, d1), y2(fftblockpad, d1)
@@ -580,7 +590,7 @@ c---------------------------------------------------------------------
 
       include 'global.h'
       integer is, d1, d2, d3, logd2
-        double complex u(*)
+       double complex u(nxp)
       double complex x(d1+1,d2,d3)
       double complex xout(d1+1,d2,d3)
       double complex y1(fftblockpad, d2), y2(fftblockpad, d2)
@@ -626,7 +636,7 @@ c---------------------------------------------------------------------
 
       include 'global.h'
       integer is, d1, d2, d3, logd3
-        double complex u(*)
+        double complex u(nxp)
       double complex x(d1+1,d2,d3)
       double complex xout(d1+1,d2,d3)
       double complex y1(fftblockpad, d3), y2(fftblockpad, d3)
@@ -674,7 +684,7 @@ c---------------------------------------------------------------------
 
       implicit none
       include 'global.h'
-        double complex u(*)
+      double complex u(nxp)
       integer m,n,nu,ku,i,j,ln
       double precision t, ti
 
@@ -725,7 +735,7 @@ c---------------------------------------------------------------------
       include 'global.h'
 
       integer is,m,n,i,j,l,mx
-      double complex u(*)
+      double complex u(nxp)
         double complex x, y
 
       dimension x(fftblockpad,n), y(fftblockpad,n)
@@ -784,7 +794,7 @@ c---------------------------------------------------------------------
       integer is,k,l,m,n,ny,ny1,n1,li,lj,lk,ku,i,j,i11,i12,i21,i22
       double complex u,x,y,u1,x11,x21
       dimension u(n), x(ny1,n), y(ny1,n)
-
+ 
 
 c---------------------------------------------------------------------
 c   Set initial parameters.
@@ -854,7 +864,7 @@ c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 
-      subroutine checksum(i, u1, d1, d2, d3)
+      subroutine checksum(sums, i, u1, d1, d2, d3)
 
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
@@ -862,6 +872,7 @@ c---------------------------------------------------------------------
       implicit none
       include 'global.h'
       integer i, d1, d2, d3
+        double complex sums(niter_default)
       double complex u1(d1+1,d2,d3)
       integer j, q,r,s
       double complex chk
@@ -887,7 +898,7 @@ c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 
-      subroutine verify (d1, d2, d3, nt, verified, class)
+      subroutine verify (sums, d1, d2, d3, nt, verified, class)
 
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
@@ -898,6 +909,7 @@ c---------------------------------------------------------------------
       character class
       logical verified
       integer i
+        double complex sums(niter_default)
       double precision err, epsilon
 
 c---------------------------------------------------------------------

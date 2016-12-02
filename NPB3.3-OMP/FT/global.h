@@ -92,8 +92,8 @@ c     double complex, allocatable ::  u(:)
 
 
 c for checksum data
-      double complex sums(0:niter_default)
-      common /sumcomm/ sums
+c      double complex, allocatable ::  sums(er_default)
+c      common /sumcomm/ sums
 
 c number of iterations
       integer niter
