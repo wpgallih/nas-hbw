@@ -53,7 +53,7 @@ c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 
       program ft
-c        use ifcore
+        use ifcore
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
         
@@ -73,14 +73,13 @@ c  - u0 contains the initial (transformed) initial condition
 c  - u1 and u2 are working arrays
 c  - twiddle contains exponents for the time evolution operator. 
 c---------------------------------------------------------------------
-c        integer(4) :: old_policy
+        integer(4) :: old_policy
       double complex,  allocatable :: u0(:), 
      >                 u1(:)
         double complex, allocatable :: u(:)
 c     >                 u2(ntotalp)
       double precision, allocatable :: twiddle(:)
         double complex, allocatable :: sums(:)
-        double complex, allocatable :: y1(:), y2(:)
 c---------------------------------------------------------------------
 c Large arrays are in common so that they are allocated on the
 c heap rather than the stack. This common block is not
@@ -93,16 +92,14 @@ c      common /bigarrays/ u0, pad1, u1, pad2, u2, pad3, twiddle
 c      double complex, allocatable :: pad1(3), pad2(3)
 c        common /bigarrays/ u0, pad1, u1, pad2, twiddle
         
-!DIR$ ATTRIBUTES FASTMEM :: u, u0, u1, twiddle, sums, y1, y2
+!DIR$ ATTRIBUTES FASTMEM :: u, u0, u1, twiddle, sums
       integer iter
       double precision total_time, mflops
       logical verified
       character class
-c        old_policy = for_set_fastmem_policy(FOR_K_FASTMEM_NORETRY)
-       allocate(u0(ntotalp), u1(ntotalp), twiddle(ntotalp), u(nxp))
+        old_policy = for_set_fastmem_policy(FOR_K_FASTMEM_NORETRY)
+        allocate(u0(ntotalp), u1(ntotalp), twiddle(ntotalp), u(nxp))
         allocate(sums(niter_default))
-        allocate(y1(fftblockpad_default*maxdim))
-        allocate(y2(fftblockpad_default*maxdim))
 c---------------------------------------------------------------------
 c Run the entire problem once to make sure all data is touched. 
 c This reduces variable startup costs, which is important for such a 
@@ -116,7 +113,7 @@ c---------------------------------------------------------------------
       call compute_indexmap(twiddle, dims(1), dims(2), dims(3))
       call compute_initial_conditions(u1, dims(1), dims(2), dims(3))
       call fft_init (u, dims(1))
-      call fft(u, 1, u1, u0, y1, y2)
+      call fft(u, 1, u1, u0)
 
 c---------------------------------------------------------------------
 c Start over from the beginning. Note that all operations must
@@ -137,7 +134,7 @@ c---------------------------------------------------------------------
 
       if (timers_enabled) call timer_stop(T_setup)
       if (timers_enabled) call timer_start(T_fft)
-      call fft(u, 1, u1, u0, y1, y2)
+      call fft(u, 1, u1, u0)
       if (timers_enabled) call timer_stop(T_fft)
 
       do iter = 1, niter
@@ -146,7 +143,7 @@ c---------------------------------------------------------------------
          if (timers_enabled) call timer_stop(T_evolve)
          if (timers_enabled) call timer_start(T_fft)
 c         call fft(-1, u1, u2)
-         call fft(u, -1, u1, u1, y1, y2)
+         call fft(u, -1, u1, u1)
          if (timers_enabled) call timer_stop(T_fft)
          if (timers_enabled) call timer_start(T_checksum)
 c         call checksum(iter, u2, dims(1), dims(2), dims(3))
@@ -167,7 +164,7 @@ c         call checksum(iter, u2, dims(1), dims(2), dims(3))
       else
          mflops = 0.0
       endif
-        deallocate(u, u0, u1, twiddle, sums, y1, y2)
+        deallocate(u, u0, u1, twiddle, sums)
       call print_results('FT', class, nx, ny, nz, niter,
      >  total_time, mflops, '          floating point', verified, 
      >  npbversion, compiletime, cs1, cs2, cs3, cs4, cs5, cs6, cs7)
@@ -491,7 +488,7 @@ c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 
-      subroutine fft(u, dir, x1, x2, y1, y2)
+      subroutine fft(u, dir, x1, x2)
 
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
@@ -504,10 +501,6 @@ c---------------------------------------------------------------------
 
 c      double complex y1(fftblockpad_default*maxdim),
 c     >               y2(fftblockpad_default*maxdim)
-
-        double complex y1(fftblockpad_default*maxdim)
-        double complex y2(fftblockpad_default*maxdim)
-
 c---------------------------------------------------------------------
 c note: args x1, x2 must be different arrays
 c note: args for cfftsx are (direction, layout, xin, xout, scratch)
@@ -516,13 +509,13 @@ c       if they are
 c---------------------------------------------------------------------
 
       if (dir .eq. 1) then
-         call cffts1(u, 1, dims(1), dims(2), dims(3), x1, x1, y1, y2)
-         call cffts2(u, 1, dims(1), dims(2), dims(3), x1, x1, y1, y2)
-         call cffts3(u, 1, dims(1), dims(2), dims(3), x1, x2, y1, y2)
+         call cffts1(u, 1, dims(1), dims(2), dims(3), x1, x1)
+         call cffts2(u, 1, dims(1), dims(2), dims(3), x1, x1)
+         call cffts3(u, 1, dims(1), dims(2), dims(3), x1, x2)
       else
-         call cffts3(u, -1, dims(1), dims(2), dims(3), x1, x1, y1, y2)
-         call cffts2(u, -1, dims(1), dims(2), dims(3), x1, x1, y1, y2)
-         call cffts1(u, -1, dims(1), dims(2), dims(3), x1, x2, y1, y2)
+         call cffts3(u, -1, dims(1), dims(2), dims(3), x1, x1)
+         call cffts2(u, -1, dims(1), dims(2), dims(3), x1, x1)
+         call cffts1(u, -1, dims(1), dims(2), dims(3), x1, x2)
       endif
 
       return
@@ -534,7 +527,7 @@ c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 
-      subroutine cffts1(u, is, d1, d2, d3, x, xout, y1, y2)
+      subroutine cffts1(u, is, d1, d2, d3, x, xout)
 
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
@@ -546,7 +539,9 @@ c---------------------------------------------------------------------
       double complex u(nxp)
       double complex x(d1+1,d2,d3)
       double complex xout(d1+1,d2,d3)
-      double complex y1(fftblockpad, d1), y2(fftblockpad, d1)
+c      double complex y1(fftblockpad, d1), y2(fftblockpad, d1)
+        double complex, allocatable :: y1(:,:), y2(:,:)
+        !DIR$ ATTRIBUTES FASTMEM :: y1, y2
       integer i, j, k, jj
 
       logd1 = ilog2(d1)
@@ -555,6 +550,7 @@ c---------------------------------------------------------------------
 !$omp parallel do default(shared) private(i,j,k,jj,y1,y2)
 !$omp&  shared(is,logd1,d1)
       do k = 1, d3
+        allocate(y1(fftblockpad,d1),y2(fftblockpad,d1))
          do jj = 0, d2 - fftblock, fftblock
             do j = 1, fftblock
                do i = 1, d1
@@ -571,6 +567,7 @@ c---------------------------------------------------------------------
                enddo
             enddo
          enddo
+        deallocate(y1, y2)
       enddo
       if (timers_enabled) call timer_stop(T_fftx)
 
@@ -581,7 +578,7 @@ c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 
-      subroutine cffts2(u, is, d1, d2, d3, x, xout, y1, y2)
+      subroutine cffts2(u, is, d1, d2, d3, x, xout)
 
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
@@ -593,7 +590,9 @@ c---------------------------------------------------------------------
        double complex u(nxp)
       double complex x(d1+1,d2,d3)
       double complex xout(d1+1,d2,d3)
-      double complex y1(fftblockpad, d2), y2(fftblockpad, d2)
+c     double complex y1(fftblockpad, d2), y2(fftblockpad, d2)
+        double complex, allocatable :: y1(:,:), y2(:,:)
+       !DIR$ ATTRIBUTES FASTMEM :: y1, y2
       integer i, j, k, ii
 
       logd2 = ilog2(d2)
@@ -602,6 +601,7 @@ c---------------------------------------------------------------------
 !$omp parallel do default(shared) private(i,j,k,ii,y1,y2)
 !$omp&  shared(is,logd2,d2)
       do k = 1, d3
+        allocate(y1(fftblockpad,d2), y2(fftblockpad,d2))
         do ii = 0, d1 - fftblock, fftblock
            do j = 1, d2
               do i = 1, fftblock
@@ -617,6 +617,7 @@ c---------------------------------------------------------------------
               enddo
            enddo
         enddo
+        deallocate(y1, y2)
       enddo
       if (timers_enabled) call timer_stop(T_ffty)
 
@@ -627,7 +628,7 @@ c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 
-      subroutine cffts3(u, is, d1, d2, d3, x, xout, y1, y2)
+      subroutine cffts3(u, is, d1, d2, d3, x, xout)
 
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
@@ -639,7 +640,8 @@ c---------------------------------------------------------------------
         double complex u(nxp)
       double complex x(d1+1,d2,d3)
       double complex xout(d1+1,d2,d3)
-      double complex y1(fftblockpad, d3), y2(fftblockpad, d3)
+c      double complex y1(fftblockpad, d3), y2(fftblockpad, d3)
+        double complex, allocatable :: y1(:, :), y2(:, :)
       integer i, j, k, ii
 
       logd3 = ilog2(d3)
@@ -648,6 +650,7 @@ c---------------------------------------------------------------------
 !$omp parallel do default(shared) private(i,j,k,ii,y1,y2)
 !$omp&  shared(is)
       do j = 1, d2
+        allocate(y1(fftblockpad,d3), y2(fftblockpad,d3))
         do ii = 0, d1 - fftblock, fftblock
            do k = 1, d3
               do i = 1, fftblock
@@ -663,6 +666,7 @@ c---------------------------------------------------------------------
               enddo
            enddo
         enddo
+        deallocate(y1, y2)
       enddo
       if (timers_enabled) call timer_stop(T_fftz)
 
@@ -735,10 +739,7 @@ c---------------------------------------------------------------------
       include 'global.h'
 
       integer is,m,n,i,j,l,mx
-      double complex u(nxp)
-        double complex x, y
-
-      dimension x(fftblockpad,n), y(fftblockpad,n)
+      double complex u(nxp), x(fftblockpad,n), y(fftblockpad, n)
 
 c---------------------------------------------------------------------
 c   Check if input parameters are invalid.

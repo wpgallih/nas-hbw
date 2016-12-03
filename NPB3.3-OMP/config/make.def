@@ -36,7 +36,7 @@ FLINK	= $(F77)
 #---------------------------------------------------------------------------
 # These macros are passed to the linker 
 #---------------------------------------------------------------------------
-F_LIB  = -lmemkind
+F_LIB  = -L/home/galliher/memkind/jemalloc/obj/lib -l:libmemkind.so.0.0.1 -ljemalloc
 
 #---------------------------------------------------------------------------
 # These macros are passed to the compiler 
@@ -46,13 +46,13 @@ F_INC =
 #---------------------------------------------------------------------------
 # Global *compile time* flags for Fortran programs
 #---------------------------------------------------------------------------
-FFLAGS	= -align array64byte -g -fpe0 -warn -traceback -debug extended -check arg_temp_created -mcmodel medium -shared-intel -O3 -xMIC-AVX512  -qopenmp -heap-arrays 4 -qopt-report=5
+FFLAGS	= -heap-arrays -g -fpe0 -warn -traceback -debug extended -check arg_temp_created -mcmodel medium -shared-intel -O3 -xMIC-AVX512  -qopenmp -qopt-report=5
 
 #---------------------------------------------------------------------------
 # Global *link time* flags. Flags for increasing maximum executable 
 # size usually go here. 
 #---------------------------------------------------------------------------
-FLINKFLAGS = -align array64byte -g -fpe0 -warn -traceback -debug extended -check arg_temp_created -mcmodel medium -shared-intel -O3 -xMIC-AVX512 -heap-arrays 4 -qopenmp -qopt-report=5
+FLINKFLAGS = -heap-arrays -g -fpe0 -warn -traceback -debug extended -check arg_temp_created -mcmodel medium -shared-intel -O3 -xMIC-AVX512 -qopenmp -qopt-report=5
 
 
 #---------------------------------------------------------------------------
