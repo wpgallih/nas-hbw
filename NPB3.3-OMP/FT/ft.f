@@ -541,7 +541,7 @@ c---------------------------------------------------------------------
       double complex xout(d1+1,d2,d3)
 c      double complex y1(fftblockpad, d1), y2(fftblockpad, d1)
         double complex, allocatable :: y1(:,:), y2(:,:)
-        !DIR$ ATTRIBUTES FASTMEM :: y1, y2
+!DIR$ ATTRIBUTES FASTMEM :: y1, y2
       integer i, j, k, jj
 
       logd1 = ilog2(d1)
@@ -550,7 +550,7 @@ c      double complex y1(fftblockpad, d1), y2(fftblockpad, d1)
 !$omp parallel do default(shared) private(i,j,k,jj,y1,y2)
 !$omp&  shared(is,logd1,d1)
       do k = 1, d3
-        allocate(y1(fftblockpad,d1),y2(fftblockpad,d1))
+        allocate(y1(fftblock,d1),y2(fftblock,d1))
          do jj = 0, d2 - fftblock, fftblock
             do j = 1, fftblock
                do i = 1, d1
@@ -592,7 +592,7 @@ c---------------------------------------------------------------------
       double complex xout(d1+1,d2,d3)
 c     double complex y1(fftblockpad, d2), y2(fftblockpad, d2)
         double complex, allocatable :: y1(:,:), y2(:,:)
-       !DIR$ ATTRIBUTES FASTMEM :: y1, y2
+!DIR$ ATTRIBUTES FASTMEM :: y1, y2
       integer i, j, k, ii
 
       logd2 = ilog2(d2)
@@ -601,7 +601,7 @@ c     double complex y1(fftblockpad, d2), y2(fftblockpad, d2)
 !$omp parallel do default(shared) private(i,j,k,ii,y1,y2)
 !$omp&  shared(is,logd2,d2)
       do k = 1, d3
-        allocate(y1(fftblockpad,d2), y2(fftblockpad,d2))
+        allocate(y1(fftblock,d2), y2(fftblock,d2))
         do ii = 0, d1 - fftblock, fftblock
            do j = 1, d2
               do i = 1, fftblock
@@ -643,14 +643,14 @@ c---------------------------------------------------------------------
 c      double complex y1(fftblockpad, d3), y2(fftblockpad, d3)
         double complex, allocatable :: y1(:, :), y2(:, :)
       integer i, j, k, ii
-
+!DIR$ ATTRIBUTES FASTMEM :: y1, y2
       logd3 = ilog2(d3)
 
       if (timers_enabled) call timer_start(T_fftz)
 !$omp parallel do default(shared) private(i,j,k,ii,y1,y2)
 !$omp&  shared(is)
       do j = 1, d2
-        allocate(y1(fftblockpad,d3), y2(fftblockpad,d3))
+        allocate(y1(fftblock,d3), y2(fftblock,d3))
         do ii = 0, d1 - fftblock, fftblock
            do k = 1, d3
               do i = 1, fftblock
