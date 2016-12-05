@@ -1,5 +1,6 @@
       include 'npbparams.h'
 
+c Time to make c functions within other things whoo.
 
 c If processor array is 1x1 -> 0D grid decomposition
 
@@ -94,7 +95,10 @@ c     double complex, allocatable ::  u(:)
 c for checksum data
 c      double complex, allocatable ::  sums(er_default)
 c      common /sumcomm/ sums
-
+	integer allocnode
+	parameter (allocnode = 1)
 c number of iterations
       integer niter
       common /iter/ niter
+
+

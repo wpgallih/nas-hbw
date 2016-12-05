@@ -49,11 +49,42 @@ c---------------------------------------------------------------------
 c FT benchmark
 c---------------------------------------------------------------------
 
+        MODULE numa
+        use iso_c_binding
+        IMPLICIT none
+       INTERFACE
+       FUNCTION numa_alloc(s, n) BIND(C,NAME='numa_alloc_onnode')
+                IMPORT :: C_PTR
+                TYPE(C_PTR) :: numa_alloc
+                INTEGER(8),VALUE :: s
+                INTEGER(4),VALUE :: n
+        END FUNCTION
+        END INTERFACE
+        INTERFACE
+        FUNCTION numa_available() BIND(C, NAME='numa_available')
+                TYPE(INTEGER) :: numa_available
+        END FUNCTION
+        END INTERFACE
+        INTERFACE
+        FUNCTION numa_max_node() BIND(C, NAME='numa_max_node')
+                TYPE(INTEGER) :: numa_max_node
+        END FUNCTION
+        END INTERFACE
+        INTERFACE
+        SUBROUTINE numa_free(p,s) BIND(C, NAME='numa_free')
+                IMPORT :: C_PTR
+                TYPE(C_PTR) :: p
+                INTEGER(8),VALUE :: s
+        END SUBROUTINE
+        END INTERFACE
+       end module numa
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 
       program ft
-        use ifcore
+        use ifcore 
+        use iso_c_binding
+        use numa
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
         
@@ -61,8 +92,12 @@ c---------------------------------------------------------------------
 
       include 'global.h'
  
-      integer i
-      
+c---------------------------------------------------------------------
+c---------------------------------------------------------------------
+
+      integer i,j
+!$    integer  omp_get_max_threads
+!$    external omp_get_max_threads     
 c---------------------------------------------------------------------
 c u0, u1, u2 are the main arrays in the problem. 
 c Depending on the decomposition, these arrays will have different 
@@ -73,13 +108,14 @@ c  - u0 contains the initial (transformed) initial condition
 c  - u1 and u2 are working arrays
 c  - twiddle contains exponents for the time evolution operator. 
 c---------------------------------------------------------------------
-        integer(4) :: old_policy
-      double complex,  allocatable :: u0(:), 
-     >                 u1(:)
-        double complex, allocatable :: u(:)
+      double complex,  pointer :: u0(:)
+      double complex, pointer :: u1(:,:,:)
+        double complex, pointer :: u(:)
 c     >                 u2(ntotalp)
-      double precision, allocatable :: twiddle(:)
-        double complex, allocatable :: sums(:)
+      double precision,  pointer :: twiddle(:)
+        double complex, pointer :: sums(:)
+        double complex, pointer :: y13d(:,:,:), y23d(:,:,:)
+        double complex, pointer :: small_array(:,:)
 c---------------------------------------------------------------------
 c Large arrays are in common so that they are allocated on the
 c heap rather than the stack. This common block is not
@@ -92,14 +128,81 @@ c      common /bigarrays/ u0, pad1, u1, pad2, u2, pad3, twiddle
 c      double complex, allocatable :: pad1(3), pad2(3)
 c        common /bigarrays/ u0, pad1, u1, pad2, twiddle
         
-!DIR$ ATTRIBUTES FASTMEM :: u, u0, u1, twiddle, sums
-      integer iter
+      integer iter, num_threads
       double precision total_time, mflops
+        integer(8) actual_size
       logical verified
       character class
-        old_policy = for_set_fastmem_policy(FOR_K_FASTMEM_NORETRY)
-        allocate(u0(ntotalp), u1(ntotalp), twiddle(ntotalp), u(nxp))
-        allocate(sums(niter_default))
+         type(c_ptr) :: uptr, u0ptr, u1ptr, twiddleptr, sumsptr
+        type(c_ptr) :: y13dptr, y23dptr
+        if(numa_available() < 0) then
+                write (*,*) "Numa support not available."
+        end if
+       call setup()
+        num_threads = 1
+!$     num_threads = omp_get_max_threads()
+       actual_size = int(fftblock,8)*maxdim*num_threads*16
+         y13dptr = numa_alloc(actual_size, allocnode)
+        if(c_associated(y13dptr)) then
+       call C_F_POINTER(y13dptr, y13d, [fftblock, maxdim, num_threads])
+        else
+                write(*,*) "Failed to allocate y1."
+                stop
+        endif
+        y23dptr = numa_alloc(actual_size, allocnode)
+        if(c_associated(y23dptr)) then
+       call C_F_POINTER(y23dptr, y23d, [fftblock, maxdim, num_threads])
+        else
+                write(*,*) "Failed to allocate y2."
+                stop
+        endif
+        uptr = numa_alloc(actual_size, allocnode)
+        if(c_associated(uptr)) then
+           call C_F_POINTER(uptr, u, [actual_size])
+        else
+                write(*,*) "Failed to allocate u."
+                stop
+        endif
+       
+        actual_size = int(nxp,8)*16
+        uptr = numa_alloc(actual_size, allocnode)
+        if(c_associated(uptr)) then
+           call C_F_POINTER(uptr, u, [actual_size])
+        else
+                write(*,*) "Failed to allocate u."
+                stop
+        endif
+        actual_size = int(ntotalp,8)*16
+        write(*,*) "Allocated size is trying to be..", actual_size
+        u0ptr = numa_alloc(actual_size, allocnode)
+        if(c_associated(u0ptr)) then
+          call C_F_POINTER(u0ptr, u0, (/actual_size/))
+        else
+                write(*,*) "Failed to allocate u0."
+                stop
+        end if
+         u1ptr = numa_alloc(actual_size, allocnode)
+        if(c_associated(u1ptr)) then
+          call C_F_POINTER(u1ptr, u1, (/actual_size/))
+        else
+                write(*,*) "Failed to allocate u1."
+                stop
+        end if
+        twiddleptr = numa_alloc(actual_size, allocnode)
+        if(c_associated(twiddleptr)) then
+          call C_F_POINTER(twiddleptr, twiddle, [actual_size])
+        else
+                write(*,*) "Failed to allocate twiddle."
+                stop
+        end if
+        actual_size = int(niter_default,8)*16
+        sumsptr = numa_alloc(actual_size, allocnode)
+        if(c_associated(sumsptr)) then
+          call C_F_POINTER(sumsptr, sums, [actual_size])
+        else
+                write(*,*) "Failed to allocate sums."
+                stop
+        end if
 c---------------------------------------------------------------------
 c Run the entire problem once to make sure all data is touched. 
 c This reduces variable startup costs, which is important for such a 
@@ -108,12 +211,11 @@ c---------------------------------------------------------------------
       do i = 1, t_max
          call timer_clear(i)
       end do
-      call setup()
       call init_ui(u0, u1, twiddle, dims(1), dims(2), dims(3))
       call compute_indexmap(twiddle, dims(1), dims(2), dims(3))
       call compute_initial_conditions(u1, dims(1), dims(2), dims(3))
       call fft_init (u, dims(1))
-      call fft(u, 1, u1, u0)
+      call fft(u, 1, u1, u0, y13d, y23d, num_threads)
 
 c---------------------------------------------------------------------
 c Start over from the beginning. Note that all operations must
@@ -134,7 +236,7 @@ c---------------------------------------------------------------------
 
       if (timers_enabled) call timer_stop(T_setup)
       if (timers_enabled) call timer_start(T_fft)
-      call fft(u, 1, u1, u0)
+      call fft(u, 1, u1, u0, y13d, y23d, num_threads)
       if (timers_enabled) call timer_stop(T_fft)
 
       do iter = 1, niter
@@ -143,7 +245,7 @@ c---------------------------------------------------------------------
          if (timers_enabled) call timer_stop(T_evolve)
          if (timers_enabled) call timer_start(T_fft)
 c         call fft(-1, u1, u2)
-         call fft(u, -1, u1, u1)
+         call fft(u, -1, u1, u1, y13d, y23d, num_threads)
          if (timers_enabled) call timer_stop(T_fft)
          if (timers_enabled) call timer_start(T_checksum)
 c         call checksum(iter, u2, dims(1), dims(2), dims(3))
@@ -164,7 +266,17 @@ c         call checksum(iter, u2, dims(1), dims(2), dims(3))
       else
          mflops = 0.0
       endif
-        deallocate(u, u0, u1, twiddle, sums)
+        actual_size = int(fftblock,8)*maxdim*num_threads*16
+        call numa_free(y13dptr,actual_size)
+        call numa_free(y23dptr,actual_size)
+        actual_size = int(nxp,8)*16 
+        call numa_free(uptr,actual_size)
+        actual_size = int(ntotalp,8)*16 
+        call numa_free(u0ptr, actual_size)
+        call numa_free(u1ptr, actual_size)
+        call numa_free(twiddleptr, actual_size)
+        actual_size = int(niter_default,8)*16
+        call numa_free(sumsptr, actual_size)
       call print_results('FT', class, nx, ny, nz, niter,
      >  total_time, mflops, '          floating point', verified, 
      >  npbversion, compiletime, cs1, cs2, cs3, cs4, cs5, cs6, cs7)
@@ -185,8 +297,8 @@ c---------------------------------------------------------------------
 
       implicit none
       integer d1, d2, d3
-      double complex   u0(d1+1,d2,d3)
-      double complex   u1(d1+1,d2,d3)
+      double complex u0(d1+1,d2,d3)
+      double complex u1(d1+1,d2,d3)
       double precision twiddle(d1+1,d2,d3)
       integer i, j, k
 
@@ -488,19 +600,19 @@ c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 
-      subroutine fft(u, dir, x1, x2)
+      subroutine fft(u, dir, x1, x2, y1, y2, num_threads)
 
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 
       implicit none
       include 'global.h'
-      integer dir
+      integer dir, num_threads
       double complex u(nxp)
       double complex x1(ntotalp), x2(ntotalp)
 
-c      double complex y1(fftblockpad_default*maxdim),
-c     >               y2(fftblockpad_default*maxdim)
+      double complex y1(fftblockpad*maxdim*num_threads),
+     >               y2(fftblockpad*maxdim*num_threads)
 c---------------------------------------------------------------------
 c note: args x1, x2 must be different arrays
 c note: args for cfftsx are (direction, layout, xin, xout, scratch)
@@ -509,13 +621,19 @@ c       if they are
 c---------------------------------------------------------------------
 
       if (dir .eq. 1) then
-         call cffts1(u, 1, dims(1), dims(2), dims(3), x1, x1)
-         call cffts2(u, 1, dims(1), dims(2), dims(3), x1, x1)
-         call cffts3(u, 1, dims(1), dims(2), dims(3), x1, x2)
+        call cffts1(u, 1, dims(1), dims(2), dims(3),
+     > x1, x1, y1, y2,num_threads)
+        call cffts2(u, 1, dims(1), dims(2), dims(3),
+     > x1, x1, y1, y2,num_threads)
+        call cffts3(u, 1, dims(1), dims(2), dims(3), 
+     > x1, x2,y1,y2,num_threads)
       else
-         call cffts3(u, -1, dims(1), dims(2), dims(3), x1, x1)
-         call cffts2(u, -1, dims(1), dims(2), dims(3), x1, x1)
-         call cffts1(u, -1, dims(1), dims(2), dims(3), x1, x2)
+        call cffts3(u, -1, dims(1), dims(2), dims(3), 
+     > x1, x1,y1,y2,num_threads)
+        call cffts2(u, -1, dims(1), dims(2), dims(3), 
+     > x1, x1,y1,y2,num_threads)
+        call cffts1(u, -1, dims(1), dims(2), dims(3), 
+     > x1, x2,y1,y2,num_threads)
       endif
 
       return
@@ -527,47 +645,53 @@ c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 
-      subroutine cffts1(u, is, d1, d2, d3, x, xout)
+      subroutine cffts1(u, is, d1, d2, d3, x, xout, y1, y2, num_threads)
 
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 
+        use iso_c_binding
+        use numa
       implicit none
 
       include 'global.h'
-      integer is, d1, d2, d3, logd1
+!$      integer omp_get_thread_num
+!$      external omp_get_thread_num
+      integer is, d1, d2, d3, logd1, num_threads, tid
       double complex u(nxp)
       double complex x(d1+1,d2,d3)
       double complex xout(d1+1,d2,d3)
 c      double complex y1(fftblockpad, d1), y2(fftblockpad, d1)
-        double complex, allocatable :: y1(:,:), y2(:,:)
-!DIR$ ATTRIBUTES FASTMEM :: y1, y2
+        double complex :: y1(fftblock,d1,num_threads)
+        double complex :: y2(fftblock,d1,num_threads)
       integer i, j, k, jj
-
+        tid = 1
       logd1 = ilog2(d1)
 
       if (timers_enabled) call timer_start(T_fftx)
-!$omp parallel do default(shared) private(i,j,k,jj,y1,y2)
-!$omp&  shared(is,logd1,d1)
+!$omp parallel do default(shared) private(i,j,k,jj,tid)
+!$omp&  shared(is,logd1,d1,y1,y2)
       do k = 1, d3
-        allocate(y1(fftblock,d1),y2(fftblock,d1))
+        tid = 1
+!$      tid = omp_get_thread_num()
+c        allocate(y1(fftblock,d1),y2(fftblock,d1))
          do jj = 0, d2 - fftblock, fftblock
             do j = 1, fftblock
                do i = 1, d1
-                  y1(j,i) = x(i,j+jj,k)
+                  y1(j,i,tid) = x(i,j+jj,k)
                enddo
             enddo
             
-            call cfftz (u, is, logd1, d1, y1, y2)
+            call cfftz (u, is, logd1, d1, y1, y2,tid, num_threads)
 
 
             do j = 1, fftblock
                do i = 1, d1
-                  xout(i,j+jj,k) = y1(j,i)
+                  xout(i,j+jj,k) = y1(j,i,tid)
                enddo
             enddo
          enddo
-        deallocate(y1, y2)
+c        deallocate(y1, y2)
       enddo
       if (timers_enabled) call timer_stop(T_fftx)
 
@@ -578,46 +702,49 @@ c      double complex y1(fftblockpad, d1), y2(fftblockpad, d1)
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 
-      subroutine cffts2(u, is, d1, d2, d3, x, xout)
+      subroutine cffts2(u, is, d1, d2, d3, x, xout, y1, y2, num_threads)
 
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
-
+        use iso_c_binding
+        use numa
       implicit none
 
       include 'global.h'
-      integer is, d1, d2, d3, logd2
+!$      integer omp_get_thread_num
+!$      external omp_get_thread_num
+      integer is, d1, d2, d3, logd2, num_threads, tid
        double complex u(nxp)
       double complex x(d1+1,d2,d3)
       double complex xout(d1+1,d2,d3)
 c     double complex y1(fftblockpad, d2), y2(fftblockpad, d2)
-        double complex, allocatable :: y1(:,:), y2(:,:)
-!DIR$ ATTRIBUTES FASTMEM :: y1, y2
-      integer i, j, k, ii
-
+c        double complex, allocatable :: y1(:,:), y2(:,:)
+         double complex y1(fftblock,d2,num_threads) 
+        double complex y2(fftblock,d2,num_threads)
+        integer i, j, k, ii
       logd2 = ilog2(d2)
 
       if (timers_enabled) call timer_start(T_ffty)
-!$omp parallel do default(shared) private(i,j,k,ii,y1,y2)
-!$omp&  shared(is,logd2,d2)
+!$omp parallel do default(shared) private(i,j,k,ii,tid)
+!$omp&  shared(is,logd2,d2,y1,y2,num_threads)
       do k = 1, d3
-        allocate(y1(fftblock,d2), y2(fftblock,d2))
+        tid = 1
+!$      tid = omp_get_thread_num()
         do ii = 0, d1 - fftblock, fftblock
            do j = 1, d2
               do i = 1, fftblock
-                 y1(i,j) = x(i+ii,j,k)
+                 y1(i,j,tid) = x(i+ii,j,k)
               enddo
            enddo
 
-           call cfftz (u, is, logd2, d2, y1, y2)
+           call cfftz (u, is, logd2, d2, y1, y2,tid,num_threads)
            
            do j = 1, d2
               do i = 1, fftblock
-                 xout(i+ii,j,k) = y1(i,j)
+                 xout(i+ii,j,k) = y1(i,j,tid)
               enddo
            enddo
         enddo
-        deallocate(y1, y2)
       enddo
       if (timers_enabled) call timer_stop(T_ffty)
 
@@ -628,45 +755,50 @@ c     double complex y1(fftblockpad, d2), y2(fftblockpad, d2)
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 
-      subroutine cffts3(u, is, d1, d2, d3, x, xout)
+      subroutine cffts3(u, is, d1, d2, d3, x, xout, y1, y2, num_threads)
 
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
-
+        use iso_c_binding
+        use numa
       implicit none
 
       include 'global.h'
-      integer is, d1, d2, d3, logd3
+!$      integer omp_get_thread_num
+!$      external omp_get_thread_num
+      integer is, d1, d2, d3, logd3, num_threads, tid
         double complex u(nxp)
       double complex x(d1+1,d2,d3)
       double complex xout(d1+1,d2,d3)
 c      double complex y1(fftblockpad, d3), y2(fftblockpad, d3)
-        double complex, allocatable :: y1(:, :), y2(:, :)
-      integer i, j, k, ii
-!DIR$ ATTRIBUTES FASTMEM :: y1, y2
+c        double complex, allocatable :: y1(:, :), y2(:, :)
+         double complex y1(fftblock,d3,num_threads)
+        double complex y2(fftblock,d3,num_threads)
+        integer i, j, k, ii
+
       logd3 = ilog2(d3)
 
       if (timers_enabled) call timer_start(T_fftz)
-!$omp parallel do default(shared) private(i,j,k,ii,y1,y2)
-!$omp&  shared(is)
+!$omp parallel do default(shared) private(i,j,k,ii,tid)
+!$omp&  shared(is,y1,y2,num_threads)
       do j = 1, d2
-        allocate(y1(fftblock,d3), y2(fftblock,d3))
+        tid = 1
+!$      tid = omp_get_thread_num()
         do ii = 0, d1 - fftblock, fftblock
            do k = 1, d3
               do i = 1, fftblock
-                 y1(i,k) = x(i+ii,j,k)
+                 y1(i,k,tid) = x(i+ii,j,k)
               enddo
            enddo
 
-           call cfftz (u, is, logd3, d3, y1, y2)
+           call cfftz (u, is, logd3, d3, y1, y2, tid,num_threads)
 
            do k = 1, d3
               do i = 1, fftblock
-                 xout(i+ii,j,k) = y1(i,k)
+                 xout(i+ii,j,k) = y1(i,k,tid)
               enddo
            enddo
         enddo
-        deallocate(y1, y2)
       enddo
       if (timers_enabled) call timer_stop(T_fftz)
 
@@ -721,7 +853,7 @@ c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 
-      subroutine cfftz (u, is, m, n, x, y)
+      subroutine cfftz (u, is, m, n, x, y, tid, num_threads)
 
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
@@ -738,8 +870,9 @@ c---------------------------------------------------------------------
       implicit none
       include 'global.h'
 
-      integer is,m,n,i,j,l,mx
-      double complex u(nxp), x(fftblockpad,n), y(fftblockpad, n)
+      integer is,m,n,i,j,l,mx,tid, num_threads
+      double complex u(nxp), x(fftblock,n,num_threads)
+      double complex  y(fftblock, n,num_threads)
 
 c---------------------------------------------------------------------
 c   Check if input parameters are invalid.
@@ -757,9 +890,11 @@ c---------------------------------------------------------------------
 c   Perform one variant of the Stockham FFT.
 c---------------------------------------------------------------------
       do l = 1, m, 2
-        call fftz2 (is, l, m, n, fftblock, fftblockpad, u, x, y)
+        call fftz2 (is, l, m, n, fftblock, fftblockpad, 
+     > u, x, y,tid,num_threads)
         if (l .eq. m) goto 160
-        call fftz2 (is, l + 1, m, n, fftblock, fftblockpad, u, y, x)
+        call fftz2 (is, l + 1, m, n,fftblock, fftblockpad,
+     > u,y,x,tid,num_threads)
       enddo
 
       goto 180
@@ -769,7 +904,7 @@ c   Copy Y to X.
 c---------------------------------------------------------------------
  160  do j = 1, n
         do i = 1, fftblock
-          x(i,j) = y(i,j)
+          x(i,j,tid) = y(i,j,tid)
         enddo
       enddo
 
@@ -781,7 +916,7 @@ c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 
-      subroutine fftz2 (is, l, m, n, ny, ny1, u, x, y)
+      subroutine fftz2 (is, l, m, n, ny, ny1, u, x, y, tid, num_threads)
 
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
@@ -793,8 +928,10 @@ c---------------------------------------------------------------------
       implicit none
 
       integer is,k,l,m,n,ny,ny1,n1,li,lj,lk,ku,i,j,i11,i12,i21,i22
+        integer tid,num_threads
       double complex u,x,y,u1,x11,x21
-      dimension u(n), x(ny1,n), y(ny1,n)
+      dimension u(n), x(ny,n,num_threads), y(ny,n,num_threads)
+c      write(*,*) "Made it to fftz2 with tid ",tid," threads",num_threads
  
 
 c---------------------------------------------------------------------
@@ -823,10 +960,10 @@ c   This loop is vectorizable.
 c---------------------------------------------------------------------
         do k = 0, lk - 1
           do j = 1, ny
-            x11 = x(j,i11+k)
-            x21 = x(j,i12+k)
-            y(j,i21+k) = x11 + x21
-            y(j,i22+k) = u1 * (x11 - x21)
+            x11 = x(j,i11+k,tid)
+            x21 = x(j,i12+k,tid)
+            y(j,i21+k,tid) = x11 + x21
+            y(j,i22+k,tid) = u1 * (x11 - x21)
           enddo
         enddo
       enddo
@@ -1124,4 +1261,4 @@ c---------------------------------------------------------------------
       return
       end
 
-
+c
