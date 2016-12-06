@@ -19,9 +19,9 @@ c      niter_default: default number of iterations for this problem size
 c---------------------------------------------------------------------
 
       include 'npbparams.h'
-
+	integer alloc_node
       integer           aa, bb, cc, BLOCK_SIZE
-      parameter        (aa=1, bb=2, cc=3, BLOCK_SIZE=5)
+      parameter        (aa=1, bb=2, cc=3, BLOCK_SIZE=5, alloc_node = 1)
 
       integer           grid_points(3)
       double precision  elapsed_time
@@ -66,18 +66,18 @@ c
 c   to improve cache performance, grid dimensions padded by 1 
 c   for even number sizes only.
 c
-      double precision 
-     >   us      (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
-     >   vs      (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
-     >   ws      (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
-     >   qs      (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
-     >   rho_i   (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
-     >   square  (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
-     >   forcing (5, 0:IMAXP, 0:JMAXP, 0:KMAX-1),
-     >   u       (5, 0:IMAXP, 0:JMAXP, 0:KMAX-1),
-     >   rhs     (5, 0:IMAXP, 0:JMAXP, 0:KMAX-1)
-      common /fields/  u, us, vs, ws, qs, rho_i, square, 
-     >                 rhs, forcing
+c      double precision 
+c     >   us      (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+c     >   vs      (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+c     >   ws      (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+c     >   qs      (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+c     >   rho_i   (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+c     >   square  (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+c     >   forcing (5, 0:IMAXP, 0:JMAXP, 0:KMAX-1),
+c     >   u       (5, 0:IMAXP, 0:JMAXP, 0:KMAX-1),
+c     >   rhs     (5, 0:IMAXP, 0:JMAXP, 0:KMAX-1)
+c      common /fields/  u, us, vs, ws, qs, rho_i, square, 
+c     >                 rhs, forcing
 
       double precision cuf(0:problem_size),   q  (0:problem_size),
      >                 ue (0:problem_size,5), buf(0:problem_size,5)

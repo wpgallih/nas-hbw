@@ -12,20 +12,20 @@ c
         logical  convertdouble
         parameter (convertdouble = .false.)
         character compiletime*11
-        parameter (compiletime='29 Nov 2016')
+        parameter (compiletime='06 Dec 2016')
         character npbversion*5
         parameter (npbversion='3.3.1')
         character cs1*5
         parameter (cs1='ifort')
         character cs2*6
         parameter (cs2='$(F77)')
-        character cs3*9
-        parameter (cs3='-lmemkind')
+        character cs3*41
+        parameter (cs3='-L/home/galliher/numactl/build/lib -lnuma')
         character cs4*6
         parameter (cs4='(none)')
-        character cs5*21
-        parameter (cs5='-O -i8 -mcmodel=large')
-        character cs6*21
-        parameter (cs6='-O -i8 -mcmodel=large')
+        character cs5*46
+        parameter (cs5='-mcmodel medium -shared-intel -O3 -xMIC-AVX...')
+        character cs6*46
+        parameter (cs6='-mcmodel medium -shared-intel -O3 -xMIC-AVX...')
         character cs7*6
         parameter (cs7='randi8')

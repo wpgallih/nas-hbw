@@ -46,9 +46,40 @@ c          H. Jin
 c
 c---------------------------------------------------------------------
 
-
+        MODULE numa
+        use iso_c_binding
+        IMPLICIT none
+       INTERFACE
+       FUNCTION numa_alloc(s, n) BIND(C,NAME='numa_alloc_onnode')
+                IMPORT :: C_PTR
+                TYPE(C_PTR) :: numa_alloc
+                INTEGER(8),VALUE :: s
+                INTEGER(4),VALUE :: n
+        END FUNCTION
+        END INTERFACE
+        INTERFACE
+        FUNCTION numa_available() BIND(C, NAME='numa_available')
+                TYPE(INTEGER) :: numa_available
+        END FUNCTION
+        END INTERFACE
+        INTERFACE
+        FUNCTION numa_max_node() BIND(C, NAME='numa_max_node')
+                TYPE(INTEGER) :: numa_max_node
+        END FUNCTION
+        END INTERFACE
+        INTERFACE
+        SUBROUTINE numa_free(p,s) BIND(C, NAME='numa_free')
+                IMPORT :: C_PTR
+                TYPE(C_PTR) :: p
+                INTEGER(8),VALUE :: s
+        END SUBROUTINE
+        END INTERFACE
+       end module numa
+c
 c---------------------------------------------------------------------
       program mg
+        use iso_c_binding
+        use numa
 c---------------------------------------------------------------------
 
       implicit none
@@ -71,7 +102,10 @@ c and probably shouldn't be allocated on the stack. They
 c are always passed as subroutine args. 
 c---------------------------------------------------------------------------c
 
-      double precision u(nr),v(nv),r(nr),a(0:3),c(0:3)
+c      double precision u(nr),v(nv),r(nr),a(0:3),c(0:3)
+        double precision, pointer :: u(:),v(:),r(:),a(:),c(:)
+        type(c_ptr) :: uptr,vptr,rptr,aptr,cptr
+        integer(8) :: usize,vsize,rsize,asize,csize
       common /noautom/ u,v,r   
 
       double precision rnm2, rnmu, old2, oldu, epsilon
@@ -84,6 +118,21 @@ c---------------------------------------------------------------------------c
       double precision tmax
 !$    integer  omp_get_max_threads
 !$    external omp_get_max_threads
+        usize = int(nr,8)*16
+        vsize = int(nv,8)*16
+        rsize = int(nr,8)*16
+        asize = int(4,8)*16
+        csize = int(4,8)*16
+        uptr = numa_alloc(usize,alloc_node)
+        call c_f_pointer(uptr,u,[nr])
+        vptr = numa_alloc(vsize,alloc_node)
+        call c_f_pointer(vptr,v,[nv])
+        rptr = numa_alloc(rsize,alloc_node)
+        call c_f_pointer(rptr,r,[nr])
+        aptr = numa_alloc(asize,alloc_node)
+        call c_f_pointer(aptr,a,[4])
+        cptr = numa_alloc(csize,alloc_node)
+        call c_f_pointer(cptr,c,[4])
 
 
       do i = T_init, T_last
@@ -170,27 +219,27 @@ c     debug_vec(5) = k => at level k or below, show result of interp
 c     debug_vec(6) = 1 => (unused)
 c     debug_vec(7) = 1 => (unused)
 c---------------------------------------------------------------------
-      a(0) = -8.0D0/3.0D0 
-      a(1) =  0.0D0 
-      a(2) =  1.0D0/6.0D0 
-      a(3) =  1.0D0/12.0D0
+      a(1) = -8.0D0/3.0D0 
+      a(2) =  0.0D0 
+      a(3) =  1.0D0/6.0D0 
+      a(4) =  1.0D0/12.0D0
       
       if(Class .eq. 'A' .or. Class .eq. 'S'.or. Class .eq.'W') then
 c---------------------------------------------------------------------
 c     Coefficients for the S(a) smoother
 c---------------------------------------------------------------------
-         c(0) =  -3.0D0/8.0D0
-         c(1) =  +1.0D0/32.0D0
-         c(2) =  -1.0D0/64.0D0
-         c(3) =   0.0D0
+         c(1) =  -3.0D0/8.0D0
+         c(2) =  +1.0D0/32.0D0
+         c(3) =  -1.0D0/64.0D0
+         c(4) =   0.0D0
       else
 c---------------------------------------------------------------------
 c     Coefficients for the S(b) smoother
 c---------------------------------------------------------------------
-         c(0) =  -3.0D0/17.0D0
-         c(1) =  +1.0D0/33.0D0
-         c(2) =  -1.0D0/61.0D0
-         c(3) =   0.0D0
+         c(1) =  -3.0D0/17.0D0
+         c(2) =  +1.0D0/33.0D0
+         c(3) =  -1.0D0/61.0D0
+         c(4) =   0.0D0
       endif
       lb = 1
       k  = lt
@@ -362,6 +411,12 @@ c---------------------------------------------------------------------
 
  999  continue
 
+        call numa_free(uptr,usize)
+        call numa_free(vptr,vsize)
+        call numa_free(rptr,rsize)
+        call numa_free(aptr,asize)
+        call numa_free(cptr,csize)
+        
       end
 
 c---------------------------------------------------------------------
@@ -461,7 +516,7 @@ c---------------------------------------------------------------------
 
       integer n1, n2, n3, k
       double precision u(nr),v(nv),r(nr)
-      double precision a(0:3),c(0:3)
+      double precision a(4),c(4)
 
       integer j
 
@@ -534,7 +589,7 @@ c---------------------------------------------------------------------
       include 'globals.h'
 
       integer n1,n2,n3,k
-      double precision u(n1,n2,n3),r(n1,n2,n3),c(0:3)
+      double precision u(n1,n2,n3),r(n1,n2,n3),c(4)
       integer i3, i2, i1
 
       double precision r1(m), r2(m)
@@ -551,14 +606,14 @@ c---------------------------------------------------------------------
             enddo
             do i1=2,n1-1
                u(i1,i2,i3) = u(i1,i2,i3)
-     >                     + c(0) * r(i1,i2,i3)
-     >                     + c(1) * ( r(i1-1,i2,i3) + r(i1+1,i2,i3)
+     >                     + c(1) * r(i1,i2,i3)
+     >                     + c(2) * ( r(i1-1,i2,i3) + r(i1+1,i2,i3)
      >                              + r1(i1) )
-     >                     + c(2) * ( r2(i1) + r1(i1-1) + r1(i1+1) )
+     >                     + c(3) * ( r2(i1) + r1(i1-1) + r1(i1+1) )
 c---------------------------------------------------------------------
-c  Assume c(3) = 0    (Enable line below if c(3) not= 0)
+c  Assume c(4) = 0    (Enable line below if c(4) not= 0)
 c---------------------------------------------------------------------
-c    >                     + c(3) * ( r2(i1-1) + r2(i1+1) )
+c    >                     + c(4) * ( r2(i1-1) + r2(i1+1) )
 c---------------------------------------------------------------------
             enddo
          enddo
@@ -606,7 +661,7 @@ c---------------------------------------------------------------------
       include 'globals.h'
 
       integer n1,n2,n3,k
-      double precision u(n1,n2,n3),v(n1,n2,n3),r(n1,n2,n3),a(0:3)
+      double precision u(n1,n2,n3),v(n1,n2,n3),r(n1,n2,n3),a(4)
       integer i3, i2, i1
       double precision u1(m), u2(m)
 
@@ -622,15 +677,15 @@ c---------------------------------------------------------------------
             enddo
             do i1=2,n1-1
                r(i1,i2,i3) = v(i1,i2,i3)
-     >                     - a(0) * u(i1,i2,i3)
+     >                     - a(1) * u(i1,i2,i3)
 c---------------------------------------------------------------------
-c  Assume a(1) = 0      (Enable 2 lines below if a(1) not= 0)
+c  Assume a(2) = 0      (Enable 2 lines below if a(2) not= 0)
 c---------------------------------------------------------------------
 c    >                     - a(1) * ( u(i1-1,i2,i3) + u(i1+1,i2,i3)
 c    >                              + u1(i1) )
 c---------------------------------------------------------------------
-     >                     - a(2) * ( u2(i1) + u1(i1-1) + u1(i1+1) )
-     >                     - a(3) * ( u2(i1-1) + u2(i1+1) )
+     >                     - a(3) * ( u2(i1) + u1(i1-1) + u1(i1+1) )
+     >                     - a(4) * ( u2(i1-1) + u2(i1+1) )
             enddo
          enddo
       enddo
