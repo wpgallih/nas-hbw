@@ -2,7 +2,7 @@
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 
-       subroutine y_solve(rho_i, u, qs, square, rhs)
+       subroutine y_solve(rho_i, u, qs, square, rhs, vs, speed)
 
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
@@ -20,6 +20,8 @@ c---------------------------------------------------------------------
        double precision ru1, fac1, fac2
       double precision 
      >   qs      (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+     >   vs      (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+     >   speed   (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
      >   rho_i   (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
      >   square  (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
      >   u       (5, 0:IMAXP, 0:JMAXP, 0:KMAX-1),
