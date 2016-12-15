@@ -85,14 +85,15 @@ c---------------------------------------------------------------------
      >   qs      (:,:,:),
      >   rho_i   (:,:,:),
      >   square  (:,:,:),
+     >   speed   (:,:,:),
      >   forcing (:,:,:,:),
      >   u       (:,:,:,:),
      >   rhs     (:,:,:,:)
       
       integer(8) us_s,vs_s,ws_s,qs_s,rho_i_s,
-     >  square_s,forcing_s,u_s,rhs_s
+     >  square_s,forcing_s,u_s,rhs_s,speed_s
         type(c_ptr) :: usptr,vsptr,wsptr,qsptr,rho_iptr,
-     >  squareptr,forcingptr, uptr,rhsptr
+     >  squareptr,forcingptr, uptr,rhsptr,speedptr
 
        integer          i, niter, step, fstatus, n3
        external         timer_read
@@ -181,6 +182,7 @@ c--------------------------------------------------------------------
         vs_s = int((IMAXP+1),8)*(JMAXP+1)*(KMAX)*16
         ws_s = int((IMAXP+1),8)*(JMAXP+1)*(KMAX)*16
         qs_s = int((IMAXP+1),8)*(JMAXP+1)*(KMAX)*16
+        speed_s = int((IMAXP+1),8)*(JMAXP+1)*(KMAX)*16
         rho_i_s = int((IMAXP+1),8)*(JMAXP+1)*(KMAX)*16
         square_s = int((IMAXP+1),8)*(JMAXP+1)*(KMAX)*16
         forcing_s = int((IMAXP+1),8)*(JMAXP+1)*(KMAX)*5*16
@@ -192,6 +194,7 @@ c--------------------------------------------------------------------
         qsptr = numa_alloc(qs_s, alloc_node)
         rho_iptr = numa_alloc(rho_i_s,alloc_node)
         squareptr = numa_alloc(square_s,alloc_node)
+        speedptr = numa_alloc(speed_s,alloc_node)
         forcingptr = numa_alloc(forcing_s,alloc_node)
         uptr = numa_alloc(u_s,alloc_node)
         rhsptr = numa_alloc(rhs_s,alloc_node)
@@ -201,6 +204,7 @@ c--------------------------------------------------------------------
         call c_f_pointer(qsptr, qs, [IMAXP+1,JMAXP+1,KMAX])
         call c_f_pointer(rho_iptr, rho_i, [IMAXP+1,JMAXP+1,KMAX])
         call c_f_pointer(squareptr, square, [IMAXP+1,JMAXP+1,KMAX])
+        call c_f_pointer(speedptr, speed, [IMAXP+1,JMAXP+1,KMAX])
         call c_f_pointer(forcingptr, forcing, [5,IMAXP+1,JMAXP+1,KMAX])
         call c_f_pointer(uptr, u, [5,IMAXP+1,JMAXP+1,KMAX])
         call c_f_pointer(rhsptr, rhs, [5,IMAXP+1,JMAXP+1,KMAX])
@@ -216,7 +220,8 @@ c--------------------------------------------------------------------
 c---------------------------------------------------------------------
 c      do one time step to touch all code, and reinitialize
 c---------------------------------------------------------------------
-       call adi(rhs,qs,square,forcing,ws,u,vs,us,rho_i,IMAXP,JMAXP,KMAX)
+       call adi(rhs,qs,square,speed,forcing,ws,u,
+     >   vs,us,rho_i,IMAXP,JMAXP,KMAX)
        call initialize(u)
 
        do i = 1, t_last

@@ -3,7 +3,7 @@ c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 
        subroutine  adi(rhs,qs,square,forcing,ws,u,vs,us,
-     >   rho_i,IMAXP,JMAXP,KMAX)
+     >   rho_i,speed,IMAXP,JMAXP,KMAX)
 
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
@@ -15,10 +15,11 @@ c---------------------------------------------------------------------
      >   qs      (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
      >   rho_i   (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
      >   square  (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+     >   speed   (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
      >   forcing (5, 0:IMAXP, 0:JMAXP, 0:KMAX-1),
      >   u       (5, 0:IMAXP, 0:JMAXP, 0:KMAX-1),
      >   rhs     (5, 0:IMAXP, 0:JMAXP, 0:KMAX-1)
-       call compute_rhs(rhs,qs,square,forcing,ws,u,vs,us,rho_i)
+       call compute_rhs(rhs,qs,square,speed,forcing,ws,u,vs,us,rho_i)
 
        call txinvr(rhs,qs,square,forcing,ws,u,vs,us,rho_i)
 
