@@ -41,13 +41,59 @@ c Authors: R. Van der Wijngaart
 c          W. Saphir
 c          H. Jin
 c---------------------------------------------------------------------
-
+        MODULE numa
+        use iso_c_binding
+        IMPLICIT none
+       INTERFACE
+       FUNCTION numa_alloc(s, n) BIND(C,NAME='numa_alloc_onnode')
+                IMPORT :: C_PTR
+                TYPE(C_PTR) :: numa_alloc
+                INTEGER(8),VALUE :: s
+                INTEGER(4),VALUE :: n
+        END FUNCTION
+        END INTERFACE
+        INTERFACE
+        FUNCTION numa_available() BIND(C, NAME='numa_available')
+                TYPE(INTEGER) :: numa_available
+        END FUNCTION
+        END INTERFACE
+        INTERFACE
+        FUNCTION numa_max_node() BIND(C, NAME='numa_max_node')
+                TYPE(INTEGER) :: numa_max_node
+        END FUNCTION
+        END INTERFACE
+        INTERFACE
+        SUBROUTINE numa_free(p,s) BIND(C, NAME='numa_free')
+                IMPORT :: C_PTR
+                TYPE(C_PTR) :: p
+                INTEGER(8),VALUE :: s
+        END SUBROUTINE
+        END INTERFACE
+       end module numa
 c---------------------------------------------------------------------
        program SP
+        use iso_c_binding
+        use numa
 c---------------------------------------------------------------------
 
        include  'header.h'
+
+       double precision, pointer :: 
+     >   us      (:,:,:),
+     >   vs      (:,:,:),
+     >   ws      (:,:,:),
+     >   qs      (:,:,:),
+     >   rho_i   (:,:,:),
+     >   square  (:,:,:),
+     >   forcing (:,:,:,:),
+     >   u       (:,:,:,:),
+     >   rhs     (:,:,:,:)
       
+      integer(8) us_s,vs_s,ws_s,qs_s,rho_i_s,
+     >  square_s,forcing_s,u_s,rhs_s
+        type(c_ptr) :: usptr,vsptr,wsptr,qsptr,rho_iptr,
+     >  squareptr,forcingptr, uptr,rhsptr
+
        integer          i, niter, step, fstatus, n3
        external         timer_read
        double precision mflops, t, tmax, timer_read, trecs(t_last)
@@ -128,20 +174,50 @@ c---------------------------------------------------------------------
        nz2 = grid_points(3) - 2
 
        call set_constants
+c--------------------------------------------------------------------
+c      Allocate
+c--------------------------------------------------------------------
+        us_s = int((IMAXP+1),8)*(JMAXP+1)*(KMAX)*16
+        vs_s = int((IMAXP+1),8)*(JMAXP+1)*(KMAX)*16
+        ws_s = int((IMAXP+1),8)*(JMAXP+1)*(KMAX)*16
+        qs_s = int((IMAXP+1),8)*(JMAXP+1)*(KMAX)*16
+        rho_i_s = int((IMAXP+1),8)*(JMAXP+1)*(KMAX)*16
+        square_s = int((IMAXP+1),8)*(JMAXP+1)*(KMAX)*16
+        forcing_s = int((IMAXP+1),8)*(JMAXP+1)*(KMAX)*5*16
+        u_s = int((IMAXP+1),8)*(JMAXP+1)*(KMAX)*5*16
+        rhs_s = int((IMAXP+1),8)*(JMAXP+1)*(KMAX)*5*16
+        usptr = numa_alloc(us_s,alloc_node)
+        vsptr = numa_alloc(vs_s,alloc_node)
+        wsptr = numa_alloc(ws_s,alloc_node)
+        qsptr = numa_alloc(qs_s, alloc_node)
+        rho_iptr = numa_alloc(rho_i_s,alloc_node)
+        squareptr = numa_alloc(square_s,alloc_node)
+        forcingptr = numa_alloc(forcing_s,alloc_node)
+        uptr = numa_alloc(u_s,alloc_node)
+        rhsptr = numa_alloc(rhs_s,alloc_node)
+        call c_f_pointer(usptr, us, [IMAXP+1,JMAXP+1,KMAX])
+        call c_f_pointer(vsptr, vs, [IMAXP+1,JMAXP+1,KMAX])
+        call c_f_pointer(wsptr, ws, [IMAXP+1,JMAXP+1,KMAX])
+        call c_f_pointer(qsptr, qs, [IMAXP+1,JMAXP+1,KMAX])
+        call c_f_pointer(rho_iptr, rho_i, [IMAXP+1,JMAXP+1,KMAX])
+        call c_f_pointer(squareptr, square, [IMAXP+1,JMAXP+1,KMAX])
+        call c_f_pointer(forcingptr, forcing, [5,IMAXP+1,JMAXP+1,KMAX])
+        call c_f_pointer(uptr, u, [5,IMAXP+1,JMAXP+1,KMAX])
+        call c_f_pointer(rhsptr, rhs, [5,IMAXP+1,JMAXP+1,KMAX])
 
        do i = 1, t_last
           call timer_clear(i)
        end do
 
-       call exact_rhs
+       call initialize(u)
 
-       call initialize
+       call exact_rhs(forcing)
 
 c---------------------------------------------------------------------
 c      do one time step to touch all code, and reinitialize
 c---------------------------------------------------------------------
-       call adi
-       call initialize
+       call adi(rhs,qs,square,forcing,ws,u,vs,us,rho_i,IMAXP,JMAXP,KMAX)
+       call initialize(u)
 
        do i = 1, t_last
           call timer_clear(i)
@@ -155,14 +231,16 @@ c---------------------------------------------------------------------
  200         format(' Time step ', i4)
           endif
 
-          call adi
+          call adi(rhs,qs,square,forcing,ws,u,vs,us,rho_i,
+     > IMAXP,JMAXP,KMAX)
 
        end do
 
        call timer_stop(1)
        tmax = timer_read(1)
        
-       call verify(niter, class, verified)
+       call verify(niter,class,verified,us,vs,ws,qs,
+     > rho_i,square,forcing,u,rhs)
 
        if( tmax .ne. 0. ) then
           n3 = grid_points(1)*grid_points(2)*grid_points(3)

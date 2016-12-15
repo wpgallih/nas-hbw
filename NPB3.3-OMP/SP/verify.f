@@ -2,7 +2,8 @@
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 
-        subroutine verify(no_time_steps, class, verified)
+        subroutine verify(no_time_steps, class, verified,us,vs,ws,qs,
+     >  rho_i,square,forcing,u,rhs)
 
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
@@ -18,6 +19,16 @@ c---------------------------------------------------------------------
         integer m, no_time_steps
         character class
         logical verified
+        double precision 
+     >   us      (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+     >   vs      (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+     >   ws      (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+     >   qs      (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+     >   rho_i   (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+     >   square  (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+     >   forcing (5, 0:IMAXP, 0:JMAXP, 0:KMAX-1),
+     >   u       (5, 0:IMAXP, 0:JMAXP, 0:KMAX-1),
+     >   rhs     (5, 0:IMAXP, 0:JMAXP, 0:KMAX-1)
 
 c---------------------------------------------------------------------
 c   tolerance level
@@ -28,10 +39,10 @@ c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 c   compute the error norm and the residual norm, and exit if not printing
 c---------------------------------------------------------------------
-        call error_norm(xce)
-        call compute_rhs
+        call error_norm(xce,u,rhs)
+        call compute_rhs(rhs,qs,square,forcing,ws,u,vs,us,rho_i)
 
-        call rhs_norm(xcr)
+        call rhs_norm(xcr,rhs)
 
         do m = 1, 5
            xcr(m) = xcr(m) / dt

@@ -2,7 +2,7 @@
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 
-       subroutine exact_rhs
+       subroutine exact_rhs(forcing)
 
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
@@ -16,6 +16,7 @@ c---------------------------------------------------------------------
        double precision dtemp(5), xi, eta, zeta, dtpp
        integer          m, i, j, k, ip1, im1, jp1, 
      >                  jm1, km1, kp1
+       double precision forcing(5,0:IMAXP,0:JMAXP,0:KMAX-1)
 
 !$omp parallel default(shared)
 !$omp& private(i,j,k,m,zeta,eta,xi,dtpp,im1,ip1,

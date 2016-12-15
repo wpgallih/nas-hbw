@@ -2,7 +2,7 @@
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 
-       subroutine  txinvr
+       subroutine  txinvr(rhs,qs,square,forcing,ws,u,vs,us,rho_i)
 
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
@@ -16,7 +16,16 @@ c---------------------------------------------------------------------
        integer i, j, k
        double precision t1, t2, t3, ac, ru1, uu, vv, ww, r1, r2, r3, 
      >                  r4, r5, ac2inv
-
+        double precision 
+     >   us      (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+     >   vs      (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+     >   ws      (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+     >   qs      (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+     >   rho_i   (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+     >   square  (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+     >   forcing (5, 0:IMAXP, 0:JMAXP, 0:KMAX-1),
+     >   u       (5, 0:IMAXP, 0:JMAXP, 0:KMAX-1),
+     >   rhs     (5, 0:IMAXP, 0:JMAXP, 0:KMAX-1)
 
        if (timeron) call timer_start(t_txinvr)
 !$omp parallel do default(shared)

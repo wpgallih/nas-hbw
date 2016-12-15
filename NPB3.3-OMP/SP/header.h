@@ -48,29 +48,29 @@ c---------------------------------------------------------------------
      >                  c2dtty1, c2dttz1, comz1, comz4, comz5, comz6, 
      >                  c3c4tx3, c3c4ty3, c3c4tz3, c2iv, con43, con16
 
-      integer IMAX, JMAX, KMAX, IMAXP, JMAXP
+      integer IMAX, JMAX, KMAX, IMAXP, JMAXP, alloc_node
 
       parameter (IMAX=problem_size,JMAX=problem_size,KMAX=problem_size)
-      parameter (IMAXP=IMAX/2*2,JMAXP=JMAX/2*2)
+      parameter (IMAXP=IMAX/2*2,JMAXP=JMAX/2*2, alloc_node = 1)
 
 c---------------------------------------------------------------------
 c   To improve cache performance, first two dimensions padded by 1 
 c   for even number sizes only
 c---------------------------------------------------------------------
-      double precision 
-     >   u       (5, 0:IMAXP, 0:JMAXP, 0:KMAX-1),
-     >   us      (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
-     >   vs      (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
-     >   ws      (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
-     >   qs      (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
-     >   rho_i   (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
-     >   speed   (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
-     >   square  (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
-     >   rhs     (5, 0:IMAXP, 0:JMAXP, 0:KMAX-1),
-     >   forcing (5, 0:IMAXP, 0:JMAXP, 0:KMAX-1)
+c      double precision 
+c     >   u       (5, 0:IMAXP, 0:JMAXP, 0:KMAX-1),
+c     >   us      (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+c     >   vs      (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+c     >   ws      (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+c     >   qs      (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+c     >   rho_i   (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+c     >   speed   (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+c     >   square  (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+c     >   rhs     (5, 0:IMAXP, 0:JMAXP, 0:KMAX-1),
+c     >   forcing (5, 0:IMAXP, 0:JMAXP, 0:KMAX-1)
 
-      common /fields/  u, us, vs, ws, qs, rho_i, speed, square, 
-     >                 rhs, forcing
+c      common /fields/  u, us, vs, ws, qs, rho_i, speed, square, 
+c     >                 rhs, forcing
 
       double precision cv(0:problem_size-1),   rhon(0:problem_size-1),
      >                 rhos(0:problem_size-1), rhoq(0:problem_size-1),

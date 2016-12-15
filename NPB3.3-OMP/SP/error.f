@@ -2,7 +2,7 @@
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 
-       subroutine error_norm(rms)
+       subroutine error_norm(rms, u, rhs)
 
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
@@ -17,6 +17,9 @@ c---------------------------------------------------------------------
        integer i, j, k, m, d
        double precision xi, eta, zeta, u_exact(5), rms(5), add
        double precision rms_local(5)
+       double precision 
+     >   u       (5, 0:IMAXP, 0:JMAXP, 0:KMAX-1),
+     >   rhs     (5, 0:IMAXP, 0:JMAXP, 0:KMAX-1)
 
        do m = 1, 5
           rms(m) = 0.0d0
@@ -63,13 +66,14 @@ c---------------------------------------------------------------------
 
 
 
-       subroutine rhs_norm(rms)
+       subroutine rhs_norm(rms,rhs)
 
        include 'header.h'
 
        integer i, j, k, d, m
        double precision rms(5), add
        double precision rms_local(5)
+       double precision rhs(5,0:IMAXP,0:JMAXP,0:KMAX-1)
 
        do m = 1, 5
           rms(m) = 0.0d0

@@ -1,7 +1,7 @@
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 
-       subroutine compute_rhs
+       subroutine compute_rhs(rhs,qs,square,forcing,ws,u,vs,us,rho_i)
 
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
@@ -11,6 +11,17 @@ c---------------------------------------------------------------------
        integer i, j, k, m
        double precision aux, rho_inv, uijk, up1, um1, vijk, vp1, vm1,
      >                  wijk, wp1, wm1
+
+      double precision 
+     >   us      (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+     >   vs      (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+     >   ws      (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+     >   qs      (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+     >   rho_i   (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+     >   square  (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+     >   forcing (5, 0:IMAXP, 0:JMAXP, 0:KMAX-1),
+     >   u       (5, 0:IMAXP, 0:JMAXP, 0:KMAX-1),
+     >   rhs     (5, 0:IMAXP, 0:JMAXP, 0:KMAX-1)
 
 
        if (timeron) call timer_start(t_rhs)
