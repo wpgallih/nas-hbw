@@ -237,7 +237,7 @@ c---------------------------------------------------------------------
           endif
 
           call adi(rhs,qs,square,forcing,ws,u,vs,us,rho_i,
-     > IMAXP,JMAXP,KMAX)
+     > speed,IMAXP,JMAXP,KMAX)
 
        end do
 
