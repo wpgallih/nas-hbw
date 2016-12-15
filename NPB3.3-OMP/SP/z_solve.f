@@ -2,7 +2,7 @@
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 
-       subroutine z_solve(u, qs, square, rhs, rho_i)
+       subroutine z_solve(u, qs, square, rhs, rho_i,forcing,ws,vs,us)
 
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
@@ -20,10 +20,14 @@ c---------------------------------------------------------------------
        double precision ru1, fac1, fac2
 
        double precision 
+     >   us      (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+     >   vs      (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+     >   ws      (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
      >   qs      (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
-     >   square  (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
-     >   u       (5, 0:IMAXP, 0:JMAXP, 0:KMAX-1),
      >   rho_i   (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+     >   square  (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+     >   forcing (5, 0:IMAXP, 0:JMAXP, 0:KMAX-1),
+     >   u       (5, 0:IMAXP, 0:JMAXP, 0:KMAX-1),
      >   rhs     (5, 0:IMAXP, 0:JMAXP, 0:KMAX-1)
 
 c---------------------------------------------------------------------
@@ -327,7 +331,7 @@ c---------------------------------------------------------------------
        end do
        if (timeron) call timer_stop(t_zsolve)
 
-       call tzetar
+       call tzetar(rhs,qs,square,forcing,ws,u,vs,us,rho_i)
 
        return
        end

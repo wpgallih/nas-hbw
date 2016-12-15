@@ -27,7 +27,7 @@ c---------------------------------------------------------------------
 
        call y_solve(rho_i, u, qs, square, rhs)
 
-       call z_solve(u, qs, square, rhs, rho_i)
+       call z_solve(u, qs, square, rhs, rho_i,forcing,ws,vs,us)
 
        call add(u, rhs)
 

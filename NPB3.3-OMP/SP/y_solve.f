@@ -316,7 +316,7 @@ c---------------------------------------------------------------------
        if (timeron) call timer_stop(t_ysolve)
 
 
-       call pinvr
+       call pinvr(rhs)
 
        return
        end
