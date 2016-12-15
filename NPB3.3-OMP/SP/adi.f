@@ -23,7 +23,7 @@ c---------------------------------------------------------------------
 
        call txinvr(rhs,qs,square,forcing,ws,u,vs,us,rho_i)
 
-       call x_solve(rho_i, u, qs, square, speed, rhs)
+       call x_solve(rho_i, u, qs, us, square, speed, rhs)
 
        call y_solve(rho_i, u, qs, square, rhs)
 
