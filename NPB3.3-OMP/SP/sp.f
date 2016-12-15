@@ -244,7 +244,7 @@ c---------------------------------------------------------------------
        call timer_stop(1)
        tmax = timer_read(1)
        
-       call verify(no_time_steps, class, verified,us,vs,ws,qs,
+       call verify(niter, class, verified,us,vs,ws,qs,
      >  rho_i,square,speed,forcing,u,rhs)
 
        if( tmax .ne. 0. ) then
