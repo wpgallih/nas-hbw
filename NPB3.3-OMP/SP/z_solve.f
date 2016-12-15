@@ -2,7 +2,8 @@
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 
-       subroutine z_solve(u, qs, square, rhs, rho_i,forcing,ws,vs,us)
+       subroutine z_solve(u, qs, square, rhs, rho_i,forcing,ws,vs,us
+     >   speed)
 
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
@@ -26,6 +27,7 @@ c---------------------------------------------------------------------
      >   qs      (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
      >   rho_i   (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
      >   square  (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
+     >   speed   (   0:IMAXP, 0:JMAXP, 0:KMAX-1),
      >   forcing (5, 0:IMAXP, 0:JMAXP, 0:KMAX-1),
      >   u       (5, 0:IMAXP, 0:JMAXP, 0:KMAX-1),
      >   rhs     (5, 0:IMAXP, 0:JMAXP, 0:KMAX-1)
