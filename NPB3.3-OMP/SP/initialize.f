@@ -17,7 +17,7 @@ c---------------------------------------------------------------------
        integer i, j, k, m, ix, iy, iz
        double precision  xi, eta, zeta, Pface(5,3,2), Pxi, Peta, 
      >                   Pzeta, temp(5)
-       double precision u(5,0:IMAXP,0:JMAXP,0:JMAX-1)
+       double precision u(5,0:IMAXP,0:JMAXP,0:KMAX-1)
     
 
 !$omp parallel default(shared)
@@ -33,9 +33,9 @@ c---------------------------------------------------------------------
          do j = 0, grid_points(2)-1
             do i = 0, grid_points(1)-1
                u(1,i,j,k) = 1.0
-               u(2,i,j,k) = 0.0
-               u(3,i,j,k) = 0.0
-               u(4,i,j,k) = 0.0
+               u(2,i,j,k) = 1.0
+               u(3,i,j,k) = 1.0
+               u(4,i,j,k) = 1.0
                u(5,i,j,k) = 1.0
             end do
          end do
