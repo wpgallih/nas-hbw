@@ -21,7 +21,7 @@ c---------------------------------------------------------------------
      >   rhs     (5, 0:IMAXP, 0:JMAXP, 0:KMAX-1)
        call compute_rhs(rhs,qs,square,speed,forcing,ws,u,vs,us,rho_i)
 
-       call txinvr(rhs,qs,square,forcing,ws,u,vs,us,rho_i)
+       call txinvr(rhs,qs,square,speed,forcing,ws,u,vs,us,rho_i)
 
        call x_solve(rho_i, u, qs, us, square, speed, rhs)
 
