@@ -333,7 +333,7 @@ c---------------------------------------------------------------------
        end do
        if (timeron) call timer_stop(t_zsolve)
 
-       call tzetar(rhs,qs,square,forcing,ws,u,vs,us,rho_i)
+       call tzetar(rhs,qs,square,speed,forcing,ws,u,vs,us,rho_i)
 
        return
        end
