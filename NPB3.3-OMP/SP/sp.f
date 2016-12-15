@@ -245,7 +245,7 @@ c---------------------------------------------------------------------
        tmax = timer_read(1)
        
        call verify(niter,class,verified,us,vs,ws,qs,
-     > rho_i,square,forcing,u,rhs)
+     > rho_i,square,speed,forcing,u,rhs)
 
        if( tmax .ne. 0. ) then
           n3 = grid_points(1)*grid_points(2)*grid_points(3)
