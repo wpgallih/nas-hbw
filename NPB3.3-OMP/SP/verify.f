@@ -2,8 +2,8 @@
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 
-        subroutine verify(no_time_steps, class, verified,us,vs,ws,qs,
-     >     rho_i,square,speed,forcing,u,rhs)
+        subroutine verify(no_time_steps,class,verified,us,vs,ws,qs,
+     >  rho_i,square,speedforcing,u,rhs)
 
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
