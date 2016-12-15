@@ -220,8 +220,8 @@ c--------------------------------------------------------------------
 c---------------------------------------------------------------------
 c      do one time step to touch all code, and reinitialize
 c---------------------------------------------------------------------
-       call adi(rhs,qs,square,speed,forcing,ws,u,
-     >   vs,us,rho_i,IMAXP,JMAXP,KMAX)
+       call adi(rhs,qs,square,forcing,ws,u,
+     >   vs,us,rho_i,speed,IMAXP,JMAXP,KMAX)
        call initialize(u)
 
        do i = 1, t_last
