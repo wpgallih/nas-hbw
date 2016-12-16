@@ -77,9 +77,9 @@ CC      >           niter=100,
 CC      >           rcond=1.0d-1 )
 
 
-      integer    nz, naz
+      integer    nz, naz, alloc_node
       parameter( nz = na*(nonzer+1)*(nonzer+1) )
-      parameter( naz = na*(nonzer+1) )
+      parameter( naz = na*(nonzer+1), alloc_node = 1 )
 
 
       common / partit_size  /  naa, nzz, 

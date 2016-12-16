@@ -44,10 +44,42 @@ c          H. Jin
 c
 c---------------------------------------------------------------------
 
+        MODULE numa
+        use iso_c_binding
+        IMPLICIT none
+       INTERFACE
+       FUNCTION numa_alloc(s, n) BIND(C,NAME='numa_alloc_onnode')
+                IMPORT :: C_PTR
+                TYPE(C_PTR) :: numa_alloc
+                INTEGER(8),VALUE :: s
+                INTEGER(4),VALUE :: n
+        END FUNCTION
+        END INTERFACE
+        INTERFACE
+        FUNCTION numa_available() BIND(C, NAME='numa_available')
+                TYPE(INTEGER) :: numa_available
+        END FUNCTION
+        END INTERFACE
+        INTERFACE
+        FUNCTION numa_max_node() BIND(C, NAME='numa_max_node')
+                TYPE(INTEGER) :: numa_max_node
+        END FUNCTION
+        END INTERFACE
+        INTERFACE
+        SUBROUTINE numa_free(p,s) BIND(C, NAME='numa_free')
+                IMPORT :: C_PTR
+                TYPE(C_PTR) :: p
+                INTEGER(8),VALUE :: s
+        END SUBROUTINE
+        END INTERFACE
+       end module numa
+
 
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
       program cg
+        use iso_c_binding
+        use numa
 c---------------------------------------------------------------------
 c---------------------------------------------------------------------
 
@@ -57,26 +89,25 @@ c---------------------------------------------------------------------
       include 'globals.h'
 
 
-      common / main_int_mem /  colidx,     rowstr,
-     >                         iv,         arow,     acol
-      integer                  colidx(nz), rowstr(na+1),
-     >                         iv(nz+na),  arow(na), acol(naz)
+      integer, pointer ::                  colidx(:), rowstr(:),
+     >                         iv(:),  arow(:), acol(:)
 
+      double precision, pointer::         v(:), aelt(:), a(:),
+     >                         x(:),
+     >                         z(:),
+     >                         p(:),
+     >                         q(:),
+     >                         r(:)
 
-      common / main_flt_mem /  v,     aelt,     a,
-     >                         x,
-     >                         z,
-     >                         p,
-     >                         q,
-     >                         r
-      double precision         v(nz), aelt(naz), a(nz),
-     >                         x(na+2),
-     >                         z(na+2),
-     >                         p(na+2),
-     >                         q(na+2),
-     >                         r(na+2)
+c    Create necessary pointers
+        integer(8) colidx_s, rowstr_s, iv_s, arow_s, acol_s, 
+     >  v_s, aelt_s, a_s, x_s, z_s, p_s, q_s, r_s
 
+c       Integer numbers are 32 bit
+c       Double precision numbers are 64 bit
 
+        type(c_ptr) :: colidxptr, rowstrptr, ivptr, arowptr, acolptr,
+     >  vptr, aeltptr, aptr, xptr, zptr, pptr, qptr, rptr
 
       integer            i, j, k, it
 
@@ -94,6 +125,47 @@ c---------------------------------------------------------------------
       character t_names(t_last)*8
 !$    integer   omp_get_max_threads
 !$    external  omp_get_max_threads
+
+        colidx_s = int(nz,8)*4
+        rowstr_s = int((na+1),8)*4
+        iv_s = int((nz+na),8)*4
+        arow_s = int(na,8)*4
+        acol_s = int(naz,8)*4
+        v_s = int(nz,8)*8
+        aelt_s = int(naz,8)*8
+        a_s = int(nz,8)*8
+        x_s = int(na+2,8)*8
+        z_s = int(na+2,8)*8
+        p_s = int(na+2,8)*8
+        q_s = int(na+2,8)*8
+        r_s = int(na+2,8)*8
+        colidxptr = numa_alloc(colidx_s,alloc_node)
+        rowstrptr = numa_alloc(rowstr_s,alloc_node)
+        ivptr = numa_alloc(rowstr_s,alloc_node)
+        arowptr = numa_alloc(arow_s,alloc_node)
+        acolptr = numa_alloc(acol_s,alloc_node)
+        vptr = numa_alloc(v_s,alloc_node)
+        aeltptr = numa_alloc(aelt_s,alloc_node)
+        aptr = numa_alloc(a_s,alloc_node)
+        xptr = numa_alloc(x_s,alloc_node)
+        zptr = numa_alloc(z_s,alloc_node)
+        pptr = numa_alloc(p_s,alloc_node)
+        qptr = numa_alloc(q_s,alloc_node)
+        rptr = numa_alloc(r_s,alloc_node)
+        call c_f_pointer(colidxptr, colidx, [nz])
+        call c_f_pointer(rowstrptr, rowstr, [na+1])
+        call c_f_pointer(ivptr, iv, [nz+na])
+        call c_f_pointer(arowptr, arow, [na])
+        call c_f_pointer(vptr, v, [nz])
+        call c_f_pointer(aeltptr, aelt, [naz])
+        call c_f_pointer(aptr, a, [nz])
+        call c_f_pointer(xptr, x, [na+2])
+        call c_f_pointer(zptr, z, [na+2])
+        call c_f_pointer(pptr, p, [na+2])
+        call c_f_pointer(qptr, q, [na+2])
+        call c_f_pointer(rptr, r, [na+2])
+ 
+
 
       do i = 1, T_last
          call timer_clear( i )
@@ -426,6 +498,19 @@ c         err = abs( zeta - zeta_verify_value)
      >                      mflops, '          floating point', 
      >                      verified, npbversion, compiletime,
      >                      cs1, cs2, cs3, cs4, cs5, cs6, cs7)
+
+        call numa_free(colidxptr, colidx_s)
+        call numa_free(rowstrptr, rowstr_s)
+        call numa_free(ivptr, iv_s)
+        call numa_free(arowptr, arow_s)
+        call numa_free(vptr, v_s)
+        call numa_free(aeltptr, aelt_s)
+        call numa_free(aptr, a_s)
+        call numa_free(xptr, x_s)
+        call numa_free(zptr, z_s)
+        call numa_free(pptr, p_s)
+        call numa_free(qptr, q_s)
+        call numa_free(rptr, r_s)
 
 
 
