@@ -195,9 +195,9 @@ c--------------------------------------------------------------------
         qsptr = numa_alloc(qs_s, alloc_node)
         rho_iptr = numa_alloc(rho_i_s,alloc_node)
         squareptr = numa_alloc(square_s,alloc_node)
-        forcingptr = numa_alloc(forcing_s,alloc_node)
-        uptr = numa_alloc(u_s,alloc_node)
-        rhsptr = numa_alloc(rhs_s,alloc_node)
+        forcingptr = numa_alloc(forcing_s,0)
+        uptr = numa_alloc(u_s,0)
+        rhsptr = numa_alloc(rhs_s,0)
         call c_f_pointer(usptr, us, [IMAXP+1,JMAXP+1,KMAX])
         call c_f_pointer(vsptr, vs, [IMAXP+1,JMAXP+1,KMAX])
         call c_f_pointer(wsptr, ws, [IMAXP+1,JMAXP+1,KMAX])
@@ -207,7 +207,7 @@ c--------------------------------------------------------------------
         call c_f_pointer(forcingptr, forcing, [5,IMAXP+1,JMAXP+1,KMAX])
         call c_f_pointer(uptr, u, [5,IMAXP+1,JMAXP+1,KMAX])
         call c_f_pointer(rhsptr, rhs, [5,IMAXP+1,JMAXP+1,KMAX])
-
+        call enable_memmove()
        do i = 1, t_last
           call timer_clear(i)
        end do

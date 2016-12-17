@@ -36,7 +36,7 @@ FLINK	= $(F77)
 #---------------------------------------------------------------------------
 # These macros are passed to the linker 
 #---------------------------------------------------------------------------
-F_LIB  = -L/home/galliher/numactl/build/lib -lnuma
+F_LIB  = /home/galliher/benchmarks/NPB3.3.1/NPB3.3-OMP/common/syscall.o -L/home/galliher/numactl/build/lib -lnuma
 
 #---------------------------------------------------------------------------
 # These macros are passed to the compiler 
